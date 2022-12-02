@@ -1,0 +1,138 @@
+---
+title: "Asssignment4"
+author: "Chaytanya Kumar"
+date: "2022-11-28"
+output: html_document
+---
+
+
+Solution 1 and Solution 2 are on the Paper 
+
+This problem involves the OJ (orange juice) data set which is part of the ISLR2 package.
+library(ISLR2); attach(OJ); To find its description, type ?OJ
+(a) Create a training set containing a random sample of 800 observations, and a test set containing the
+remaining observations.
+
+```{r}
+library(ISLR2)
+library(tree)
+summary(OJ)
+
+set.seed(1)
+
+Z <- sample(1:nrow(OJ), 800)
+
+train <- OJ[Z, ]   #Splitting it into traning set and testing set
+test <- OJ[-Z, ]
+
+
+```
+
+(b) Fit a tree to the training data, with Purchase as the response and the other variables as predictors. Use the summary() function to produce summary statistics about the tree, and describe the results obtained. What is the training error rate? How many terminal nodes does the tree have?
+
+```{r}
+tree_model <- tree(Purchase ~ ., train)
+summary(tree_model)
+
+```
+
+Looking at the output, From all the variables, only 5 of the variables were split i.e. "LoyalCH" ,      "PriceDiff" , "SpecialCH" ,"ListPriceDiff","PctDiscMM".
+The training error rate is 15.88%.and Number of terminal nodes = 9
+
+(c) Type in the name of the tree object in order to get a detailed text output. Pick one of the terminal nodes, and interpret the information displayed.
+```{r}
+
+tree_model
+
+```
+looking at the output, we can say that the terminal node 7 formed by splitting the LoyalCH ahs 261 observations . The deviation is 91.20% and the split is between CH and MM where CH has 95% CH and 4% MM.
+
+(d) Create a plot of the tree, and interpret the results.
+```{r}
+plot(tree_model)
+text(tree_model, pretty = 0, cex = 0.7)
+
+
+
+```
+Looking at the tree output above, we can say that the LoyalCH is the root node and has three splits based on Price Diff and List price.Those on the far-right terminal node are the most loyal to CH (LoyalCH > 0.76), so it should be unsurprising that this is their predicted purchase. Those with slightly lower brand loyalty (0.5036 < LoyalCH < 0.76) would still purchase CH if it was much cheaper (ListPriceDiff > 0.23), or if it wasn’t but MM was not sufficiently discounted (PriceDiff < 0.23 & PctDiscMM < 0.196). LoyalCH ranges from 0 to 1, so the first split sends those less loyal to Citrus Hill (CH) orange juice to the left and those more loyal to the right. Those that scored lowest in Citrus Hill loyalty (LoyalCH < 0.28) were predicted to buy Minute Maid (MM), which isn’t surprising. Those that were slightly more loyal to CH (0.28 < LoyalCH < 0.5036) would still buy MM if it wasn’t too much more expensive (PriceDiff < 0.05) and there was no special on CH (SpecialCH < 0.5), but if the price difference is large enough (CH was much cheaper) or if there was a special on CH they could end up purchasing CH.
+
+
+(e) Predict the response on the test data, and produce a confusion matrix comparing the test labels to the predicted test labels. What is the test error rate?
+```{r}
+
+test_pred <- predict(tree_model, test, type = "class")
+table(test_pred, test_actual = test$Purchase)
+
+
+```
+
+
+```{r}
+1 - mean(test_pred == test$Purchase)
+```
+From the table output above, The error rate is 17%.
+
+(f) Apply the cv.tree() function to the training set in order to determine the optimal tree size.
+```{r}
+
+set.seed(1)
+cv_tree_model <- cv.tree(tree_model, K = 10, FUN = prune.misclass)
+cv_tree_model
+
+```
+We can clearly see that the tree of size 8 has produced the minimum misclassification rate and therefore is the optimal tree size. 
+  
+(g) Produce a plot with tree size on the x-axis and cross-validated classification error rate on the y-axis.
+```{r}
+data.frame(size = cv_tree_model$size, CV_Error = cv_tree_model$dev / nrow(train)) %>%
+  mutate(min_CV_Error = as.numeric(min(CV_Error) == CV_Error)) %>%
+  ggplot(aes(x = size, y = CV_Error)) +
+  geom_line(col = "grey55") +
+  geom_point(size = 2, aes(col = factor(min_CV_Error))) +
+  scale_x_continuous(breaks = seq(1, 7), minor_breaks = NULL) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_color_manual(values = c("deepskyblue3", "green")) +
+  theme(legend.position = "none") +
+  labs(title = "OJ Dataset - Classification Tree",
+      subtitle = "Selecting tree 'size' (# of terminal nodes) using cross-validation",
+      x = "Tree Size",
+       y = "CV Error")
+
+```
+
+(h) Which tree size corresponds to the lowest cross-validated classification error rate?
+
+We can clearly see that the tree of sizes 8 and 9 are the optimal trees with the least CV error rate. Also the tree of sizes 4,5,6 and 7 are low and approximately identical and therefore we can select the tree size of 4 as per the parsimonious rule. 
+
+
+(i) Produce a pruned tree corresponding to the optimal tree size obtained using cross-validation. If cross-validation does not lead to selection of a pruned tree, then create a pruned tree with five terminal nodes.
+```{r}
+pruned_tree_model <- prune.tree(tree_model, best = 5)
+pruned_tree_model
+```
+
+(j) Compare the training error rates between the pruned and unpruned trees. Which is higher?
+
+
+
+```{r}
+
+mean(predict(tree_model, type = "class") != train$Purchase)
+mean(predict(pruned_tree_model, type = "class") != train$Purchase)
+
+```
+
+
+Looking at the output, The training errors for normal tree and prune tree is 15% and 20%, respectively, therefore, Training error of pruned tree is higher.
+
+(k) Compare the test error rates between the pruned and unpruned trees. Which is higher?
+```{r}
+mean(predict(tree_model, type = "class", newdata = test) != test$Purchase)
+
+mean(predict(pruned_tree_model, type = "class", newdata = test) != test$Purchase)
+
+```
+Comparing the results, we can still say that the test error rates of the prune tree (17.4%) is higher than the normal tree (17%), as the CV results depicts that the trees with more nodes has small error. 
+
+
